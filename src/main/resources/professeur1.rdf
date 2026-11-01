@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<rdf:RDF
+    xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    xmlns:ex="http://example.org/uni#"
+    xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+
+    <!-- Classes -->
+    <rdfs:Class rdf:about="http://example.org/uni#Professeur"/>
+    <rdfs:Class rdf:about="http://example.org/uni#Departement"/>
+
+    <!-- Properties -->
+    <rdf:Property rdf:about="http://example.org/uni#nom">
+        <rdfs:domain rdf:resource="http://example.org/uni#Professeur"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </rdf:Property>
+
+    <rdf:Property rdf:about="http://example.org/uni#enseigneDepuis">
+        <rdfs:domain rdf:resource="http://example.org/uni#Professeur"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#date"/>
+    </rdf:Property>
+
+    <rdf:Property rdf:about="http://example.org/uni#travailleDans">
+        <rdfs:domain rdf:resource="http://example.org/uni#Professeur"/>
+        <rdfs:range rdf:resource="http://example.org/uni#Departement"/>
+    </rdf:Property>
+
+    <!-- Instances -->
+    <rdf:Description rdf:about="http://example.org/uni#DepInfo">
+        <rdf:type rdf:resource="http://example.org/uni#Departement"/>
+        <ex:nom>Département Informatique</ex:nom>
+    </rdf:Description>
+
+    <rdf:Description rdf:about="http://example.org/uni#BenSalah">
+        <rdf:type rdf:resource="http://example.org/uni#Professeur"/>
+        <ex:nom>Ben Salah XX</ex:nom>
+        <ex:enseigneDepuis>2004-09-01</ex:enseigneDepuis>
+        <ex:travailleDans rdf:resource="http://example.org/uni#DepInfo"/>
+        <ex:articlesURL>https://linkedin.com/bensalah</ex:articlesURL>
+    </rdf:Description>
+
+</rdf:RDF>
