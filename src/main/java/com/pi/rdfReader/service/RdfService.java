@@ -14,63 +14,96 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashMap;
 
 @Service
 
 public class RdfService {
-    private final Model model;
+    private final Model examModel;
 
     public RdfService() {
-        model = FileManager.get().loadModel("professeur1.rdf");
+        examModel = FileManager.get().loadModel("exam_schedule.rdf");
     }
 
-    public List<Map<String, String>> getAllProfessors() {
+        // Q1 : les 5 cours les plus demandés (nombre de séances d'examen par cours)
+    public List<Map<String, Object>> getTopCours() {
 
         String sparql = """
-                    PREFIX ex: <http://example.org/uni#>
+                    PREFIX ex:      <http://example.org/exam#>
+                    PREFIX dcterms: <http://purl.org/dc/terms/>
 
-                    SELECT ?nom ?date ?url
+                    SELECT ?titre (COUNT(?s) AS ?nbExamens)
                     WHERE {
-                      ?p a ex:Professeur ;
-                         ex:nom ?nom ;
-                         ex:enseigneDepuis ?date ;
-                         ex:articlesURL ?url .
+                      ?s a ex:Seance ;
+                         ex:pourCours ?cours .
+                      ?cours dcterms:title ?titre .
                     }
+                    GROUP BY ?titre
+                    ORDER BY DESC(?nbExamens)
+                    LIMIT 5
                 """;
 
         Query query = QueryFactory.create(sparql);
 
-        QueryExecution qexec = null;
-
-        try {
-            qexec = QueryExecutionFactory.create(query, model);
+        try (QueryExecution qexec = QueryExecutionFactory.create(query, examModel)) {
 
             ResultSet results = qexec.execSelect();
-
-            List<Map<String, String>> resultList = new ArrayList<>();
+            List<Map<String, Object>> resultList = new ArrayList<>();
 
             while (results.hasNext()) {
                 QuerySolution sol = results.nextSolution();
 
-                Map<String, String> row = new HashMap<>();
-                row.put("nom", sol.getLiteral("nom").getString());
-                row.put("date", sol.getLiteral("date").getString());
-                row.put("url", sol.getLiteral("url").getString());
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("titre", sol.getLiteral("titre").getString());
+                row.put("nbExamens", sol.getLiteral("nbExamens").getInt());
 
                 resultList.add(row);
             }
 
             return resultList;
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw e;
-
-        } finally {
-            if (qexec != null) {
-                qexec.close();
-            }
         }
+    }
+        // Q2 : enseignants les plus chargés (plus de 200 séances)
+    public List<Map<String, Object>> getEnseignantsCharges() {
 
+        String sparql = """
+                    PREFIX ex:   <http://example.org/exam#>
+                    PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+
+                    SELECT ?nom ?departement
+                           (COUNT(?s) AS ?nbSeances)
+                           (COUNT(DISTINCT ?cours) AS ?nbCours)
+                    WHERE {
+                      ?s   ex:assureePar ?ens ;
+                           ex:pourCours  ?cours .
+                      ?ens foaf:name ?nom ;
+                           ex:departementEnseignant ?departement .
+                    }
+                    GROUP BY ?nom ?departement
+                    HAVING (COUNT(?s) > 200)
+                    ORDER BY DESC(?nbSeances)
+                """;
+
+        Query query = QueryFactory.create(sparql);
+
+        try (QueryExecution qexec = QueryExecutionFactory.create(query, examModel)) {
+
+            ResultSet results = qexec.execSelect();
+            List<Map<String, Object>> resultList = new ArrayList<>();
+
+            while (results.hasNext()) {
+                QuerySolution sol = results.nextSolution();
+
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("nom", sol.getLiteral("nom").getString());
+                row.put("departement", sol.getLiteral("departement").getString());
+                row.put("nbSeances", sol.getLiteral("nbSeances").getInt());
+                row.put("nbCours", sol.getLiteral("nbCours").getInt());
+
+                resultList.add(row);
+            }
+
+            return resultList;
+        }
     }
 }
