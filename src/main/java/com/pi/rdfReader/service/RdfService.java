@@ -9,6 +9,11 @@ import org.apache.jena.query.ResultSet;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.util.FileManager;
 import org.springframework.stereotype.Service;
+import org.apache.jena.rdf.model.InfModel;
+import org.apache.jena.rdf.model.ModelFactory;
+import org.apache.jena.reasoner.ReasonerRegistry;
+import org.apache.jena.rdf.model.RDFNode;
+import java.util.Iterator;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -20,12 +25,15 @@ import java.util.LinkedHashMap;
 
 public class RdfService {
     private final Model examModel;
+    private final InfModel infModel;
 
     public RdfService() {
         examModel = FileManager.get().loadModel("exam_schedule.rdf");
+        // Raisonneur RDFS simple : subClassOf, subPropertyOf, domain, range
+        infModel = ModelFactory.createInfModel(ReasonerRegistry.getRDFSSimpleReasoner(), examModel);
     }
 
-        // Q1 : les 5 cours les plus demandés (nombre de séances d'examen par cours)
+    // Q1 : les 5 cours les plus demandés (nombre de séances d'examen par cours)
     public List<Map<String, Object>> getTopCours() {
 
         String sparql = """
@@ -63,7 +71,8 @@ public class RdfService {
             return resultList;
         }
     }
-        // Q2 : enseignants les plus chargés (plus de 200 séances)
+
+    // Q2 : enseignants les plus chargés (plus de 200 séances)
     public List<Map<String, Object>> getEnseignantsCharges() {
 
         String sparql = """
@@ -143,7 +152,7 @@ public class RdfService {
             return resultList;
         }
     }
-    
+
     // Q4 : conflits d'horaire (étudiants avec plusieurs examens au même créneau)
     public List<Map<String, Object>> getConflitsHoraire() {
 
@@ -239,5 +248,61 @@ public class RdfService {
 
             return resultList;
         }
+    }
+
+    // ---------- INFERENCE ----------
+
+    // Exécute une requête sur un modèle donné et renvoie les lignes sous forme de
+    // Map
+    private List<Map<String, Object>> executer(String sparql, Model model) {
+        Query query = QueryFactory.create(sparql);
+        try (QueryExecution qexec = QueryExecutionFactory.create(query, model)) {
+            ResultSet results = qexec.execSelect();
+            List<Map<String, Object>> list = new ArrayList<>();
+            while (results.hasNext()) {
+                QuerySolution sol = results.nextSolution();
+                Map<String, Object> row = new LinkedHashMap<>();
+                Iterator<String> vars = sol.varNames();
+                while (vars.hasNext()) {
+                    String v = vars.next();
+                    RDFNode node = sol.get(v);
+                    row.put(v, node.isLiteral() ? node.asLiteral().getValue() : node.toString());
+                }
+                list.add(row);
+            }
+            return list;
+        }
+    }
+
+    // Compare une même requête sans / avec inférence
+    private Map<String, Object> comparer(String sparql) {
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("sansInference", executer(sparql, examModel));
+        res.put("avecInference", executer(sparql, infModel));
+        return res;
+    }
+
+    // Règle 1 : rdfs:subClassOf (Etudiant, Enseignant => foaf:Person)
+    public Map<String, Object> getPersonnesInference() {
+        String sparql = """
+                PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+                SELECT (COUNT(DISTINCT ?p) AS ?nbPersonnes)
+                WHERE { ?p a foaf:Person . }
+                """;
+        return comparer(sparql);
+    }
+
+    // Règle 2 : rdfs:subPropertyOf (departementCours, departementEnseignant =>
+    // departement)
+    public Map<String, Object> getDepartementsInference() {
+        String sparql = """
+                PREFIX ex: <http://example.org/exam#>
+                SELECT ?departement (COUNT(DISTINCT ?x) AS ?nb)
+                WHERE { ?x ex:departement ?departement . }
+                GROUP BY ?departement
+                ORDER BY DESC(?nb)
+                LIMIT 10
+                """;
+        return comparer(sparql);
     }
 }
