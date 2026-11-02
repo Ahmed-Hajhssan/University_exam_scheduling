@@ -106,4 +106,138 @@ public class RdfService {
             return resultList;
         }
     }
+
+    // Q3 : nombre d'étudiants par programme (top 5)
+    public List<Map<String, Object>> getEtudiantsParProgramme() {
+
+        String sparql = """
+                    PREFIX ex: <http://example.org/exam#>
+
+                    SELECT ?programme (COUNT(?etu) AS ?nbEtudiants)
+                    WHERE {
+                      ?etu a ex:Etudiant ;
+                           ex:programme ?programme .
+                    }
+                    GROUP BY ?programme
+                    ORDER BY DESC(?nbEtudiants)
+                    LIMIT 5
+                """;
+
+        Query query = QueryFactory.create(sparql);
+
+        try (QueryExecution qexec = QueryExecutionFactory.create(query, examModel)) {
+
+            ResultSet results = qexec.execSelect();
+            List<Map<String, Object>> resultList = new ArrayList<>();
+
+            while (results.hasNext()) {
+                QuerySolution sol = results.nextSolution();
+
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("programme", sol.getLiteral("programme").getString());
+                row.put("nbEtudiants", sol.getLiteral("nbEtudiants").getInt());
+
+                resultList.add(row);
+            }
+
+            return resultList;
+        }
+    }
+    
+    // Q4 : conflits d'horaire (étudiants avec plusieurs examens au même créneau)
+    public List<Map<String, Object>> getConflitsHoraire() {
+
+        String sparql = """
+                    PREFIX ex:   <http://example.org/exam#>
+                    PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+
+                    SELECT ?nom ?jour ?heure (COUNT(?s) AS ?nbExamens)
+                    WHERE {
+                      ?s   ex:pourEtudiant ?etu ;
+                           ex:auCreneau    ?creneau .
+                      ?etu foaf:name ?nom .
+                      ?creneau ex:jour ?jour ;
+                               ex:heureDebut ?heure .
+                    }
+                    GROUP BY ?etu ?nom ?creneau ?jour ?heure
+                    HAVING (COUNT(?s) > 1)
+                    ORDER BY DESC(?nbExamens)
+                    LIMIT 10
+                """;
+
+        Query query = QueryFactory.create(sparql);
+
+        try (QueryExecution qexec = QueryExecutionFactory.create(query, examModel)) {
+
+            ResultSet results = qexec.execSelect();
+            List<Map<String, Object>> resultList = new ArrayList<>();
+
+            while (results.hasNext()) {
+                QuerySolution sol = results.nextSolution();
+
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("nom", sol.getLiteral("nom").getString());
+                row.put("jour", sol.getLiteral("jour").getString());
+                row.put("heure", sol.getLiteral("heure").getString());
+                row.put("nbExamens", sol.getLiteral("nbExamens").getInt());
+
+                resultList.add(row);
+            }
+
+            return resultList;
+        }
+    }
+
+    // Q5 : taux de remplissage des salles par créneau (top 5)
+    public List<Map<String, Object>> getTauxRemplissage() {
+
+        String sparql = """
+                    PREFIX ex: <http://example.org/exam#>
+
+                    SELECT ?batiment ?numero ?jour ?heure ?capacite ?nbEtudiants
+                           (ROUND(100 * ?nbEtudiants / ?capacite) AS ?tauxPct)
+                    WHERE {
+                      {
+                        SELECT ?salle ?creneau (COUNT(?s) AS ?nbEtudiants)
+                        WHERE {
+                          ?s ex:sePasseDans ?salle ;
+                             ex:auCreneau   ?creneau .
+                        }
+                        GROUP BY ?salle ?creneau
+                      }
+                      ?salle ex:batiment ?batiment ;
+                             ex:numeroSalle ?numero ;
+                             ex:capacite ?capacite .
+                      ?creneau ex:jour ?jour ;
+                               ex:heureDebut ?heure .
+                    }
+                    ORDER BY DESC(?nbEtudiants / ?capacite)
+                    LIMIT 5
+                """;
+
+        Query query = QueryFactory.create(sparql);
+
+        try (QueryExecution qexec = QueryExecutionFactory.create(query, examModel)) {
+
+            ResultSet results = qexec.execSelect();
+            List<Map<String, Object>> resultList = new ArrayList<>();
+
+            while (results.hasNext()) {
+                QuerySolution sol = results.nextSolution();
+
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("batiment", sol.getLiteral("batiment").getString());
+                row.put("numero", sol.getLiteral("numero").getInt());
+                row.put("jour", sol.getLiteral("jour").getString());
+                row.put("heure", sol.getLiteral("heure").getString());
+                row.put("capacite", sol.getLiteral("capacite").getInt());
+                row.put("nbEtudiants", sol.getLiteral("nbEtudiants").getInt());
+                row.put("tauxPct", (int) Math.round(sol.getLiteral("tauxPct").getDouble()));
+
+                resultList.add(row);
+            }
+
+            return resultList;
+        }
+    }
 }

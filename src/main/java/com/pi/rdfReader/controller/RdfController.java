@@ -26,6 +26,22 @@ public class RdfController {
     public List<Map<String, Object>> getEnseignantsCharges() {
         return rdfService.getEnseignantsCharges();
     }
+
+    // GET /api/etudiants-par-programme
+    @GetMapping("/api/etudiants-par-programme")
+    public List<Map<String, Object>> getEtudiantsParProgramme() {
+        return rdfService.getEtudiantsParProgramme();
+    }
+    // GET /api/conflits-horaire
+    @GetMapping("/api/conflits-horaire")
+    public List<Map<String, Object>> getConflitsHoraire() {
+        return rdfService.getConflitsHoraire();
+    }
+    // GET /api/taux-remplissage
+    @GetMapping("/api/taux-remplissage")
+    public List<Map<String, Object>> getTauxRemplissage() {
+        return rdfService.getTauxRemplissage();
+    }
 }
 
 
